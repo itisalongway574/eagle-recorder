@@ -66,7 +66,7 @@ async function handleRecorded(blobUrl, ext = 'webm') {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       path,
-      name: `${rec.title} (${stamp.toLocaleString()})`,
+      name: rec.title,
       website: rec.url,
       tags,
       ...(folderId && { folderId }),
