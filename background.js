@@ -68,11 +68,18 @@ async function stopRecording(rec) {
 }
 
 // ---------- offscreen／網頁回報 ----------
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.target !== 'background') return;
+  if (msg.type === 'classify-save') {
+    finishPending(msg.data).then(
+      () => sendResponse({ ok: true }),
+      (err) => sendResponse({ ok: false, error: String(err?.message || err) }),
+    );
+    return true;
+  }
   if (msg.type === 'started') onStarted().catch(showError);
   if (msg.type === 'scroll-done') onScrollDone().catch(showError);
-  if (msg.type === 'recorded') handleRecorded(msg.blobUrl, msg.ext).catch(showError);
+  if (msg.type === 'recorded') handleRecorded(msg.blobUrl, msg.ext, msg.size).catch(showError);
   if (msg.type === 'error') {
     setState(null);
     showError(msg.message);
@@ -96,7 +103,7 @@ async function onScrollDone() {
   stopRecording(await getState());
 }
 
-async function handleRecorded(blobUrl, ext = 'webm') {
+async function handleRecorded(blobUrl, ext = 'webm', size = 0) {
   const rec = await getState();
   await setState(null);
   if (!rec) return;
@@ -106,27 +113,66 @@ async function handleRecorded(blobUrl, ext = 'webm') {
   const safeTitle = rec.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
 
   const path = await downloadAndWait(blobUrl, `${DOWNLOAD_DIR}/${safeTitle} ${fileStamp}.${ext}`);
-  const { tags = ['screen-recording'], folderId = '', token = '' } =
-    await chrome.storage.local.get(['tags', 'folderId', 'token']);
-  const query = token ? `?token=${encodeURIComponent(token)}` : '';
 
-  const res = await fetch(`${EAGLE}/api/item/addFromPath${query}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      path,
-      name: rec.title,
-      website: rec.url,
-      tags,
-      ...(folderId && { folderId }),
-    }),
+  // 上一支還沒分類完就先照預設存掉，避免被新的蓋過
+  if (await getPending()) await finishPending(null).catch(showError);
+
+  const win = await chrome.windows.create({
+    url: 'classify.html',
+    type: 'popup',
+    width: 860,
+    height: 680,
+    focused: true,
   });
-  const json = await res.json().catch(() => ({}));
-  if (json.status !== 'success') throw new Error(`Eagle 匯入失敗：${JSON.stringify(json)}`);
+  await setPending({ path, title: rec.title, url: rec.url, blobUrl, size, ext, windowId: win.id });
+  setBadge('…', '#888', '等待分類');
+}
 
+// ---------- 分類視窗 ----------
+const getPending = async () => (await chrome.storage.session.get('pending')).pending || null;
+const setPending = (pending) => chrome.storage.session.set({ pending });
+
+// 視窗被直接關掉（或按 Esc）時照預設值存，錄好的影片不會遺失
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  const pending = await getPending();
+  if (pending?.windowId === windowId) finishPending(null).catch(showError);
+});
+
+async function finishPending(data) {
+  const pending = await getPending();
+  if (!pending) return;
+  await setPending(null);
+
+  const defaults = await chrome.storage.local.get(['tags', 'folderId']);
+  try {
+    await importToEagle({
+      path: pending.path,
+      name: data?.name?.trim() || pending.title,
+      website: data?.website?.trim() ?? pending.url,
+      tags: data?.tags ?? defaults.tags ?? ['screen-recording'],
+      folderId: data ? data.folderId : defaults.folderId,
+    });
+  } catch (err) {
+    if (data) await setPending(pending);
+    throw err;
+  }
+
+  if (data) chrome.windows.remove(pending.windowId).catch(() => {});
   setBadge('✓', '#188038', '已存到 Eagle，點擊開始新錄影');
   setTimeout(() => setBadge('', '#888', '開始錄影（存到 Eagle）'), 3000);
   await chrome.offscreen.closeDocument().catch(() => {});
+}
+
+async function importToEagle({ path, name, website, tags, folderId }) {
+  const { token = '' } = await chrome.storage.local.get('token');
+  const query = token ? `?token=${encodeURIComponent(token)}` : '';
+  const res = await fetch(`${EAGLE}/api/item/addFromPath${query}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, name, website, tags, ...(folderId && { folderId }) }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (json.status !== 'success') throw new Error(`Eagle 匯入失敗：${JSON.stringify(json)}`);
 }
 
 // ---------- 工具 ----------
