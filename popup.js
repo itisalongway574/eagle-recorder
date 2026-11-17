@@ -29,6 +29,7 @@ async function start(mode) {
 
 $('normal').addEventListener('click', () => start('normal'));
 $('scroll').addEventListener('click', () => start('scroll'));
+$('region').addEventListener('click', () => start('region'));
 $('stop').addEventListener('click', async () => {
   chrome.runtime.sendMessage({ target: 'background', type: 'popup-stop' }).catch(() => {});
   window.close();
@@ -43,6 +44,7 @@ async function renderShortcuts() {
   const key = (name) => commands.find((c) => c.name === name)?.shortcut || '未設定';
   $('normalKey').textContent = key('normal-record');
   $('scrollKey').textContent = key('scroll-record');
+  $('regionKey').textContent = key('region-record');
 }
 
 let timer = null;
@@ -54,7 +56,13 @@ async function renderStatus() {
 
   clearInterval(timer);
   if (rec) {
-    $('recLabel').textContent = rec.mode === 'scroll' ? '捲動錄影中' : '錄影中';
+    const selecting = rec.phase === 'selecting';
+    $('recLabel').textContent = selecting
+      ? '請在網頁上框選範圍'
+      : { scroll: '捲動錄影中', region: '範圍錄影中' }[rec.mode] || '錄影中';
+    $('recDot').hidden = selecting;
+    $('timer').hidden = selecting;
+    $('stop').textContent = selecting ? '取消框選' : '停止並存到 Eagle';
     const tick = () => {
       const s = Math.floor((Date.now() - rec.startedAt) / 1000);
       $('timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;

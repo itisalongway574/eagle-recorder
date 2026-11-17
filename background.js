@@ -1,5 +1,6 @@
 import { prepareScroll, runScroll, cancelScroll } from './scroller.js';
 import { getSettings, RESOLUTIONS, DEFAULTS } from './settings.js';
+import { selectRegion, cancelRegionSelect, showRegionFrame, hideRegionFrame } from './region.js';
 
 const EAGLE = 'http://localhost:41595';
 const DOWNLOAD_DIR = 'eagle-recorder';
@@ -19,6 +20,7 @@ function setBadge(text, color = '#d93025', title) {
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'normal-record') toggle(tab, 'normal');
   if (command === 'scroll-record') toggle(tab, 'scroll');
+  if (command === 'region-record') toggle(tab, 'region');
 });
 
 async function toggle(tab, mode) {
@@ -36,9 +38,11 @@ async function startRecording(tab, mode, streamId) {
     streamId ??= await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
     const settings = await getSettings();
     const res = RESOLUTIONS[settings.resolution] || RESOLUTIONS[DEFAULTS.resolution];
+    const isRegion = mode === 'region';
     await setState({
       tabId: tab.id,
       mode,
+      phase: isRegion ? 'selecting' : 'recording',
       title: tab.title || 'Untitled',
       url: tab.url,
       startedAt: Date.now(),
@@ -47,18 +51,41 @@ async function startRecording(tab, mode, streamId) {
       target: 'offscreen',
       type: 'start',
       streamId,
+      deferred: isRegion,
       options: { maxWidth: res.width, maxHeight: res.height, bitrate: Number(settings.bitrate) || DEFAULTS.bitrate },
     });
+    if (isRegion) await runRegionSelect(tab.id);
   } catch (err) {
+    chrome.runtime.sendMessage({ target: 'offscreen', type: 'cancel' }).catch(() => {});
     await setState(null);
     showError(err);
   }
 }
 
+// 範圍錄影：先讓使用者在網頁上框選，框好才真正開始錄
+async function runRegionSelect(tabId) {
+  setBadge('…', '#3d7bff', '框選錄影範圍中');
+  const [{ result: crop } = {}] = await inject(tabId, selectRegion);
+  const rec = await getState();
+  if (!crop || !rec || rec.stopping) {
+    chrome.runtime.sendMessage({ target: 'offscreen', type: 'cancel' }).catch(() => {});
+    await setState(null);
+    setBadge('', '#888', 'Eagle Tab Recorder');
+    await chrome.offscreen.closeDocument().catch(() => {});
+    return;
+  }
+  await setState({ ...rec, phase: 'recording', crop, startedAt: Date.now() });
+  await inject(tabId, showRegionFrame, [crop]).catch(() => {});
+  chrome.runtime.sendMessage({ target: 'offscreen', type: 'begin', crop });
+}
+
 async function stopRecording(rec) {
   if (rec.stopping) return;
+  // 還在框選時再按一次＝取消框選
+  if (rec.phase === 'selecting') return inject(rec.tabId, cancelRegionSelect).catch(() => {});
   await setState({ ...rec, stopping: true });
   if (rec.mode === 'scroll') await inject(rec.tabId, cancelScroll).catch(() => {});
+  if (rec.mode === 'region') await inject(rec.tabId, hideRegionFrame).catch(() => {});
   chrome.runtime.sendMessage({ target: 'offscreen', type: 'stop' });
   setBadge('…', '#888', '處理中…');
 }
@@ -79,6 +106,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'scroll-done') onScrollDone().catch(showError);
   if (msg.type === 'recorded') handleRecorded(msg.blobUrl, msg.ext, msg.size).catch(showError);
   if (msg.type === 'error') {
+    getState().then((rec) => rec?.mode === 'region' && inject(rec.tabId, hideRegionFrame).catch(() => {}));
     setState(null);
     showError(msg.message);
   }
