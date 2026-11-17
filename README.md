@@ -2,6 +2,8 @@
 
 錄製瀏覽器分頁畫面，錄完自動存進 [Eagle](https://eagle.cool/)，並附上網頁標題和網址。支援 Chrome 和 Edge。
 
+![Eagle Tab Recorder 使用流程](docs/overview.png)
+
 ## 功能
 
 - **點圖示開選單**：選擇一般錄影或捲動錄影，並顯示目前設定的快捷鍵；錄影參數也直接在選單裡調整。
@@ -26,6 +28,8 @@
 
 ## 使用
 
+<img src="docs/popup.png" width="320" alt="點擴充功能圖示跳出的選單">
+
 | 動作 | 方式 |
 |---|---|
 | 開始一般錄影 | 點工具列圖示 →「一般錄影」，或按 `Alt+Shift+R` |
@@ -41,6 +45,12 @@
 - **ERR**：發生錯誤，滑鼠移到圖示上可以看到原因
 
 快捷鍵可以在選單裡按「修改快捷鍵」，或到 `chrome://extensions/shortcuts`（Edge 是 `edge://extensions/shortcuts`）修改。
+
+### 分類視窗
+
+錄完會自動跳出分類視窗，點選標籤、確認名稱和資料夾後按 ⌘/Ctrl+Enter 存進 Eagle。
+
+![錄完跳出的分類視窗](docs/classify.png)
 
 ## 設定
 
