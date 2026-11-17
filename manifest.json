@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Eagle Tab Recorder",
+  "version": "0.1.0",
+  "description": "錄製目前分頁畫面，存進 Eagle 並附上網址",
+  "permissions": ["tabCapture", "offscreen", "downloads", "storage", "tabs"],
+  "host_permissions": ["http://localhost:41595/*"],
+  "background": { "service_worker": "background.js" },
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "action": { "default_title": "開始錄影（存到 Eagle）" },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+R" }
+    }
+  }
+}
