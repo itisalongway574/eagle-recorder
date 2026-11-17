@@ -152,7 +152,7 @@ async function init() {
 
   const stored = await chrome.storage.local.get(['tags', 'folderId', 'token']);
   token = stored.token || '';
-  selected = [...(stored.tags ?? ['screen-recording'])];
+  selected = [...(stored.tags ?? [])];
 
   els.name.value = pending.title;
   els.url.value = pending.url;

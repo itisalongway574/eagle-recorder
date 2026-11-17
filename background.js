@@ -149,7 +149,7 @@ async function finishPending(data) {
       path: pending.path,
       name: data?.name?.trim() || pending.title,
       website: data?.website?.trim() ?? pending.url,
-      tags: data?.tags ?? defaults.tags ?? ['screen-recording'],
+      tags: data?.tags ?? defaults.tags ?? [],
       folderId: data ? data.folderId : defaults.folderId,
     });
   } catch (err) {
