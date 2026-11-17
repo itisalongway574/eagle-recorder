@@ -1,16 +1,21 @@
 {
   "manifest_version": 3,
   "name": "Eagle Tab Recorder",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "錄製目前分頁畫面，存進 Eagle 並附上網址",
-  "permissions": ["tabCapture", "offscreen", "downloads", "storage", "tabs"],
+  "permissions": ["tabCapture", "offscreen", "downloads", "storage", "tabs", "activeTab", "scripting", "contextMenus"],
   "host_permissions": ["http://localhost:41595/*"],
-  "background": { "service_worker": "background.js" },
+  "background": { "service_worker": "background.js", "type": "module" },
   "options_ui": { "page": "options.html", "open_in_tab": false },
   "action": { "default_title": "開始錄影（存到 Eagle）" },
   "commands": {
     "_execute_action": {
-      "suggested_key": { "default": "Alt+Shift+R" }
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "開始／停止錄影"
+    },
+    "scroll-record": {
+      "suggested_key": { "default": "Alt+Shift+S", "mac": "MacCtrl+2" },
+      "description": "捲動錄影（從目前位置等速捲到底部）"
     }
   }
 }

@@ -37,3 +37,15 @@ select.addEventListener('change', async () => {
 });
 document.getElementById('reload').addEventListener('click', load);
 load();
+
+const speed = document.getElementById('speed');
+const speedStatus = document.getElementById('speedStatus');
+chrome.storage.local.get('scrollSpeed').then(({ scrollSpeed }) => {
+  if (scrollSpeed) speed.value = scrollSpeed;
+});
+speed.addEventListener('change', async () => {
+  const value = Math.min(3000, Math.max(50, Number(speed.value) || 450));
+  speed.value = value;
+  await chrome.storage.local.set({ scrollSpeed: value });
+  speedStatus.textContent = '已儲存';
+});
