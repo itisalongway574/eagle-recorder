@@ -3,11 +3,25 @@
   "name": "Eagle Tab Recorder",
   "version": "0.2.0",
   "description": "錄製目前分頁畫面，存進 Eagle 並附上網址",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": ["tabCapture", "offscreen", "downloads", "storage", "tabs", "activeTab", "scripting", "contextMenus"],
   "host_permissions": ["http://localhost:41595/*"],
   "background": { "service_worker": "background.js", "type": "module" },
   "options_ui": { "page": "options.html", "open_in_tab": false },
-  "action": { "default_title": "開始錄影（存到 Eagle）" },
+  "action": {
+    "default_title": "開始錄影（存到 Eagle）",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "commands": {
     "_execute_action": {
       "suggested_key": { "default": "Alt+Shift+R" },
