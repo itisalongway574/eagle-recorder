@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eagle Tab Recorder</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f3f3f5;
+    --hover: #e9e9ed;
+    --border: #dcdce0;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --accent: #2f6fed;
+    --accent-text: #ffffff;
+    --danger: #e5484d;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f2023;
+      --surface: #2a2b2f;
+      --hover: #34353a;
+      --border: #3a3b40;
+      --text: #ececee;
+      --muted: #9a9aa1;
+      --accent: #3d7bff;
+      --accent-text: #ffffff;
+      --danger: #ff6369;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    width: 320px;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 system-ui, -apple-system, "PingFang TC", sans-serif;
+  }
+  section { padding: 8px; }
+  [hidden] { display: none !important; }
+
+  .mode {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mode:hover, .mode:focus-visible { background: var(--hover); outline: none; }
+  .mode svg { flex: none; color: var(--muted); }
+  .mode .label { flex: 1; }
+  kbd {
+    font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+    background: var(--surface);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+  .link {
+    display: block;
+    margin: 2px 10px 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .link:hover { color: var(--text); text-decoration: underline; }
+
+  .status { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .status-line { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
+  .timer { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+  button.primary {
+    width: 100%;
+    padding: 8px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .settings { padding: 10px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+  .field-head output { color: var(--text); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  select {
+    width: 100%;
+    padding: 6px 8px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: inherit;
+  }
+  .segmented { display: flex; background: var(--surface); border-radius: 6px; padding: 2px; }
+  .segmented button {
+    flex: 1;
+    padding: 5px 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  .segmented button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+  .note { font-size: 12px; color: var(--muted); }
+  #error { color: var(--danger); font-size: 12px; padding: 0 10px 8px; }
+  #error:empty { display: none; }
+</style>
+</head>
+<body>
+  <section id="idle">
+    <button class="mode" id="normal" type="button">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="9" cy="9" r="3" fill="currentColor"/>
+      </svg>
+      <span class="label">一般錄影</span>
+      <kbd id="normalKey">—</kbd>
+    </button>
+    <button class="mode" id="scroll" type="button">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M9 6v6M6.5 9.5 9 12l2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="label">捲動錄影</span>
+      <kbd id="scrollKey">—</kbd>
+    </button>
+    <button class="link" id="editKeys" type="button">修改快捷鍵</button>
+  </section>
+
+  <section id="recording" class="status" hidden>
+    <div class="status-line">
+      <span class="dot"></span>
+      <span id="recLabel">錄影中</span>
+      <span class="timer" id="timer">00:00</span>
+    </div>
+    <button class="primary" id="stop" type="button">停止並存到 Eagle</button>
+  </section>
+
+  <section id="pending" class="status" hidden>
+    <div class="status-line">等待分類中</div>
+    <button class="primary" id="focusClassify" type="button">開啟分類視窗</button>
+  </section>
+
+  <div id="error"></div>
+
+  <section class="settings">
+    <div class="field">
+      <div class="field-head"><span>捲動速度</span><output id="speedOut"></output></div>
+      <input id="speed" type="range" min="100" max="2000" step="50">
+    </div>
+    <div class="field">
+      <div class="field-head"><span>最大解析度</span></div>
+      <div class="segmented" id="resolution"></div>
+    </div>
+    <div class="field">
+      <div class="field-head"><span>位元率</span><output id="sizeOut"></output></div>
+      <div class="segmented" id="bitrate"></div>
+    </div>
+    <div class="field">
+      <div class="field-head"><span>預設資料夾</span></div>
+      <select id="folder"><option value="">（不指定資料夾）</option></select>
+    </div>
+  </section>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Eagle Tab Recorder",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "錄製目前分頁畫面，存進 Eagle 並附上網址",
   "icons": {
     "16": "icons/icon16.png",
@@ -9,12 +9,13 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["tabCapture", "offscreen", "downloads", "storage", "tabs", "activeTab", "scripting", "contextMenus"],
+  "permissions": ["tabCapture", "offscreen", "downloads", "storage", "tabs", "activeTab", "scripting"],
   "host_permissions": ["http://localhost:41595/*"],
   "background": { "service_worker": "background.js", "type": "module" },
-  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "options_ui": { "page": "popup.html", "open_in_tab": false },
   "action": {
-    "default_title": "開始錄影（存到 Eagle）",
+    "default_title": "Eagle Tab Recorder",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -23,13 +24,13 @@
     }
   },
   "commands": {
-    "_execute_action": {
+    "normal-record": {
       "suggested_key": { "default": "Alt+Shift+R" },
-      "description": "開始／停止錄影"
+      "description": "開始／停止一般錄影"
     },
     "scroll-record": {
       "suggested_key": { "default": "Alt+Shift+S", "mac": "MacCtrl+2" },
-      "description": "捲動錄影（從目前位置等速捲到底部）"
+      "description": "開始／停止捲動錄影（從目前位置等速捲到底部）"
     }
   }
 }

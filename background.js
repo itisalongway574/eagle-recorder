@@ -1,8 +1,8 @@
 import { prepareScroll, runScroll, cancelScroll } from './scroller.js';
+import { getSettings, RESOLUTIONS, DEFAULTS } from './settings.js';
 
 const EAGLE = 'http://localhost:41595';
 const DOWNLOAD_DIR = 'eagle-recorder';
-const DEFAULT_SCROLL_SPEED = 450;
 
 // ---------- 狀態（存在 session storage，service worker 被回收也不會遺失） ----------
 const getState = async () => (await chrome.storage.session.get('rec')).rec || null;
@@ -15,22 +15,10 @@ function setBadge(text, color = '#d93025', title) {
   if (title) chrome.action.setTitle({ title });
 }
 
-// ---------- 觸發方式：點圖示、快捷鍵、圖示右鍵選單 ----------
-chrome.runtime.onInstalled.addListener(async () => {
-  await chrome.contextMenus.removeAll();
-  chrome.contextMenus.create({
-    id: 'scroll-record',
-    title: '捲動錄影（從目前位置等速捲到底部）',
-    contexts: ['action'],
-  });
-});
-
-chrome.action.onClicked.addListener((tab) => toggle(tab, 'normal'));
+// ---------- 觸發方式：快捷鍵，或點圖示開選單（popup.js 傳訊息過來） ----------
 chrome.commands.onCommand.addListener((command, tab) => {
+  if (command === 'normal-record') toggle(tab, 'normal');
   if (command === 'scroll-record') toggle(tab, 'scroll');
-});
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'scroll-record') toggle(tab, 'scroll');
 });
 
 async function toggle(tab, mode) {
@@ -39,12 +27,15 @@ async function toggle(tab, mode) {
   startRecording(tab, mode);
 }
 
-async function startRecording(tab, mode) {
+// streamId 由選單先取得時直接沿用；快捷鍵觸發時才在這裡取
+async function startRecording(tab, mode, streamId) {
   try {
     await eagleCheck();
     if (mode === 'scroll') await inject(tab.id, prepareScroll);
     await ensureOffscreen();
-    const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
+    streamId ??= await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
+    const settings = await getSettings();
+    const res = RESOLUTIONS[settings.resolution] || RESOLUTIONS[DEFAULTS.resolution];
     await setState({
       tabId: tab.id,
       mode,
@@ -52,7 +43,12 @@ async function startRecording(tab, mode) {
       url: tab.url,
       startedAt: Date.now(),
     });
-    chrome.runtime.sendMessage({ target: 'offscreen', type: 'start', streamId });
+    chrome.runtime.sendMessage({
+      target: 'offscreen',
+      type: 'start',
+      streamId,
+      options: { maxWidth: res.width, maxHeight: res.height, bitrate: Number(settings.bitrate) || DEFAULTS.bitrate },
+    });
   } catch (err) {
     await setState(null);
     showError(err);
@@ -77,6 +73,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     );
     return true;
   }
+  if (msg.type === 'popup-start') startRecording(msg.tab, msg.mode, msg.streamId);
+  if (msg.type === 'popup-stop') getState().then((rec) => rec && stopRecording(rec));
   if (msg.type === 'started') onStarted().catch(showError);
   if (msg.type === 'scroll-done') onScrollDone().catch(showError);
   if (msg.type === 'recorded') handleRecorded(msg.blobUrl, msg.ext, msg.size).catch(showError);
@@ -92,8 +90,8 @@ async function onStarted() {
   if (rec?.mode !== 'scroll') return;
   // 開頭先停一下，影片開頭才會有一段靜止的起始畫面
   await sleep(800);
-  const { scrollSpeed = DEFAULT_SCROLL_SPEED } = await chrome.storage.local.get('scrollSpeed');
-  await inject(rec.tabId, runScroll, [Number(scrollSpeed) || DEFAULT_SCROLL_SPEED]);
+  const { scrollSpeed } = await getSettings();
+  await inject(rec.tabId, runScroll, [Number(scrollSpeed) || DEFAULTS.scrollSpeed]);
 }
 
 async function onScrollDone() {

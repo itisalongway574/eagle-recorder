@@ -5,7 +5,7 @@ let audioCtx = null;
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.target !== 'offscreen') return;
-  if (msg.type === 'start') start(msg.streamId).catch(fail);
+  if (msg.type === 'start') start(msg.streamId, msg.options).catch(fail);
   if (msg.type === 'stop') stop();
 });
 
@@ -24,7 +24,7 @@ function pickMimeType() {
   return candidates.find((t) => MediaRecorder.isTypeSupported(t)) || '';
 }
 
-async function start(streamId) {
+async function start(streamId, { maxWidth = 2560, maxHeight = 1440, bitrate = 4 } = {}) {
   if (recorder?.state === 'recording') return;
 
   const source = { chromeMediaSource: 'tab', chromeMediaSourceId: streamId };
@@ -34,8 +34,8 @@ async function start(streamId) {
     video: {
       mandatory: {
         ...source,
-        maxWidth: Math.min(Math.round(screen.width * dpr), 2560),
-        maxHeight: Math.min(Math.round(screen.height * dpr), 1440),
+        maxWidth: Math.min(Math.round(screen.width * dpr), maxWidth),
+        maxHeight: Math.min(Math.round(screen.height * dpr), maxHeight),
         maxFrameRate: 30,
       },
     },
@@ -46,7 +46,7 @@ async function start(streamId) {
   audioCtx.createMediaStreamSource(stream).connect(audioCtx.destination);
 
   chunks = [];
-  recorder = new MediaRecorder(stream, { mimeType: pickMimeType(), videoBitsPerSecond: 4_000_000 });
+  recorder = new MediaRecorder(stream, { mimeType: pickMimeType(), videoBitsPerSecond: bitrate * 1_000_000 });
   recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   recorder.onstop = () => {
     const type = recorder.mimeType.split(';')[0] || 'video/webm';
